@@ -1,4 +1,4 @@
-import React, {useMemo,useRef,useState} from 'react';
+import React, {useEffect,useMemo,useRef,useState} from 'react';
 import {Image, PanResponder, Platform, StyleSheet, View} from 'react-native';
 import Svg,{Circle,Defs,LinearGradient,Stop,Polygon,Polyline,Path,Rect} from 'react-native-svg';
 import {clamp,Design,project,Quad,validQuad,webLines} from './model';
@@ -8,9 +8,20 @@ type Props={design:Design; frame?:boolean; web?:boolean; edit?:(q:Quad)=>void; c
 export function Scene({design,frame=true,web=true,edit,capture,robot,onImageReady}:Props){
   const [width,setWidth]=useState(0);
   const photo=design.photo;
-  const height=width*Math.min(1.4,photo?photo.height/photo.width:.88);
-  const imageWidth=photo?Math.min(width,height*photo.width/photo.height):width;
-  const imageHeight=photo?imageWidth*photo.height/photo.width:height;
+  const uri=photo?.uri;
+  const [decoded,setDecoded]=useState<{uri:string;ratio:number}|null>(null);
+  useEffect(()=>{
+    if(!uri)return;
+    let active=true;
+    Image.getSize(uri,(w,h)=>{
+      if(active&&w>0&&h>0)setDecoded({uri,ratio:h/w});
+    },()=>{});
+    return ()=>{active=false;};
+  },[uri]);
+  const ratio=decoded&&decoded.uri===uri?decoded.ratio:photo&&photo.width>0&&photo.height>0?photo.height/photo.width:.88;
+  const height=width*Math.min(1.4,ratio);
+  const imageWidth=Math.min(width,height/ratio);
+  const imageHeight=imageWidth*ratio;
   const live=useRef({quad:design.quad,edit,imageWidth,imageHeight});
   live.current={quad:design.quad,edit,imageWidth,imageHeight};
   const start=useRef<{q:Quad; corner:number}|null>(null);
@@ -48,6 +59,7 @@ export function Scene({design,frame=true,web=true,edit,capture,robot,onImageRead
     {width>0&&<View style={{width:imageWidth,height:imageHeight}}>
       {photo&&<Image key={photo.uri} source={{uri:photo.uri}} resizeMode="contain" style={StyleSheet.absoluteFill}
         onLoadStart={()=>onImageReady?.(false)} onLoad={()=>onImageReady?.(true)} onError={()=>onImageReady?.(false)}/>}
+      <View pointerEvents="none" style={styles.overlay}>
       <Svg width={imageWidth} height={imageHeight} pointerEvents="none">
         {!photo&&<Svg width={imageWidth} height={imageHeight} viewBox="0 0 400 352">
           <Defs><LinearGradient id="wall" x1="0" x2="1" y1="0" y2="1">
@@ -64,7 +76,13 @@ export function Scene({design,frame=true,web=true,edit,capture,robot,onImageRead
         {web&&webLines(design).map((line,i)=><Polyline key={i} points={points(line.map(p=>project(design.quad,p)))} stroke={design.color} strokeWidth={i<design.spokes?1.25:.85} opacity={.88} fill="none"/>)}
         {edit&&design.quad.map((p,i)=><Circle key={i} cx={p.x*imageWidth} cy={p.y*imageHeight} r={8} fill="#6842D8" stroke="white" strokeWidth={2}/>)}
       </Svg>
-      {!!edit&&<View style={[StyleSheet.absoluteFill,Platform.OS==='web'&&webDragStyle]} {...pan.panHandlers}/>}
+      </View>
+      {!!edit&&<View style={[styles.gesture,Platform.OS==='web'&&webDragStyle]} {...pan.panHandlers}/>}
     </View>}
   </View>;
 }
+
+const styles=StyleSheet.create({
+  overlay:{...StyleSheet.absoluteFillObject,zIndex:1},
+  gesture:{...StyleSheet.absoluteFillObject,zIndex:2},
+});
