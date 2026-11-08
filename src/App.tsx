@@ -1,8 +1,8 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {Alert,BackHandler,Pressable,ScrollView,StatusBar,StyleSheet,Text,TextInput,View} from 'react-native';
+import {Alert,BackHandler,Platform,Pressable,ScrollView,StatusBar,StyleSheet,Text,TextInput,View} from 'react-native';
 import {SafeAreaProvider,SafeAreaView} from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
-import Storage from '@react-native-async-storage/async-storage';
+import Storage from './browserStorage';
 import * as Picker from 'expo-image-picker';
 import {CameraView,useCameraPermissions} from 'expo-camera';
 import {File,Paths} from 'expo-file-system';
@@ -11,6 +11,21 @@ import {captureRef,releaseCapture} from 'react-native-view-shot';
 import {Scene} from './Scene';
 import {clamp,Design,initialQuad,newDesign,Pattern,patterns,Photo,Quad,validQuad,webDefaults} from './model';
 
+const isWeb=Platform.OS==='web';
+function notify(title:string,message?:string){
+  if(isWeb)window.alert(message ? title+'\n'+message : title);
+  else Alert.alert(title,message);
+}
+async function persistentPhoto(photo:Photo):Promise<Photo>{
+  if(!isWeb||photo.uri.startsWith('data:'))return photo;
+  const blob=await (await fetch(photo.uri)).blob();
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve({...photo,uri:String(reader.result)});
+    reader.onerror=()=>reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
 const purple='#6842D8', ink='#20202A';
 const steps=['撮影','配置','デザイン','確認','生成'];
 const titles=['部屋の角を選ぶ','フレームを配置','蜘蛛の巣をデザイン','完成プレビュー','ロボット生成'];
@@ -59,7 +74,7 @@ function Studio(){
   useEffect(()=>{scroll.current?.scrollTo({y:0,animated:false});if(page!==5)setProgress(-1);},[page,library]);
   useEffect(()=>{
     Storage.getItem(storageKey).then(raw=>{if(raw)setSaved(JSON.parse(raw));setLoaded(true);})
-      .catch(()=>Alert.alert('保存データを読み込めませんでした'));
+      .catch(()=>notify('保存データを読み込めませんでした'));
   },[]);
   useEffect(()=>{
     if(page!==5||progress<0||progress>=100)return;
@@ -70,7 +85,7 @@ function Studio(){
     if(lock.current)return;
     lock.current=true;
     setBusy(true);
-    try{await action();}catch(e){Alert.alert('操作を完了できませんでした',e instanceof Error?e.message:String(e));}
+    try{await action();}catch(e){notify('操作を完了できませんでした',e instanceof Error?e.message:String(e));}
     finally{lock.current=false;setBusy(false);}
   }
   const usePhoto=(photo:Photo)=>{setImageReady(false);patch({photo,quad:initialQuad()});};
@@ -85,7 +100,7 @@ function Studio(){
     if(!loaded)throw Error('保存データの読み込みを確認してください。');
     let photo=design.photo;
     let copied:File|undefined;
-    if(photo&&!photo.uri.startsWith(Paths.document.uri)){
+    if(photo&&!isWeb&&!photo.uri.startsWith(Paths.document.uri)){
       const source=new File(photo.uri);
       copied=new File(Paths.document,design.id+'-'+Date.now()+source.extension);
       source.copy(copied);
@@ -98,7 +113,7 @@ function Studio(){
     setSaved(list);
     setDesign(current=>({...current,photo:current.photo===design.photo?photo:current.photo,
       name:current.name===design.name?next.name:current.name,updatedAt:next.updatedAt}));
-    Alert.alert('デザインを保存しました');
+    notify('デザインを保存しました');
   });
   const resize=(factor:number)=>{
     const x=design.quad.reduce((sum,p)=>sum+p.x,0)/4;
@@ -107,22 +122,33 @@ function Studio(){
     if(quad.every(p=>clamp(p.x)===p.x&&clamp(p.y)===p.y)&&validQuad(quad))patch({quad});
   };
   const exportImage=()=>run(async()=>{
+    if(isWeb){
+      if(!photoView.current)throw Error('プレビューを表示してください。');
+      const uri=await captureRef(photoView,{format:'png',result:'data-uri'});
+      const link=document.createElement('a');
+      link.href=uri;
+      link.download='SpiderNest.png';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      return;
+    }
     const access=await Media.requestPermissionsAsync(true);
     if(!access.granted)throw Error('設定から写真の追加を許可してください。');
     if(!photoView.current)throw Error('プレビューを表示してください。');
     const uri=await captureRef(photoView,{format:'png',result:'tmpfile'});
     try{await Media.saveToLibraryAsync(uri);}finally{releaseCapture(uri);}
-    Alert.alert('完成画像を写真に保存しました');
+    notify('完成画像を写真に保存しました');
   });
   return <SafeAreaView style={s.safe}><StatusBar barStyle="dark-content"/>
     {camera?<View style={s.camera}>
       <CameraView ref={cameraView} style={StyleSheet.absoluteFill} onCameraReady={()=>setCameraReady(true)}
-        onMountError={e=>{setCamera(false);Alert.alert('カメラを開けませんでした',e.message);}}/>
+        onMountError={e=>{setCamera(false);notify('カメラを開けませんでした',e.message);}}/>
       <View pointerEvents="none" style={s.guide}><Text style={s.cameraText}>2つの壁の境界が見えるように撮影してください</Text><View style={s.guideLine}/></View>
       <View style={s.cameraActions}><Button label="戻る" disabled={busy} onPress={()=>setCamera(false)}/>
         <Button primary label="撮影する" disabled={busy||!cameraReady} onPress={()=>run(async()=>{
           const photo=await cameraView.current?.takePictureAsync({quality:.85});
-          if(photo){usePhoto(photo);setCamera(false);}
+          if(photo){usePhoto(await persistentPhoto(photo));setCamera(false);}
         })}/></View>
     </View>:<>
       <View style={s.header}>
@@ -165,7 +191,7 @@ function Studio(){
           })}/>
           <Button label="フォトライブラリから選ぶ" disabled={busy} onPress={()=>run(async()=>{
             const result=await Picker.launchImageLibraryAsync({mediaTypes:['images'],quality:.85});
-            if(!result.canceled)usePhoto(result.assets[0]);
+            if(!result.canceled)usePhoto(await persistentPhoto(result.assets[0]));
           })}/>
         </>}
         {page===2&&<>

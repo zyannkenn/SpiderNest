@@ -1,1 +1,42 @@
-{"expo":{"name":"SpiderNest","slug":"spidernest","orientation":"portrait","ios":{"bundleIdentifier":"com.spidernest.app"},"android":{"package":"com.spidernest.app"},"plugins":[["expo-camera",{"cameraPermission":"部屋の角を撮影するためカメラを使用します。","recordAudioAndroid":false}],["expo-image-picker",{"photosPermission":"部屋の写真を選択します。","microphonePermission":false}],["expo-media-library",{"savePhotosPermission":"完成画像を写真に保存します。"}]]}}
+{
+  "expo": {
+    "name": "SpiderNest",
+    "slug": "spidernest",
+    "orientation": "portrait",
+    "ios": {
+      "bundleIdentifier": "com.spidernest.app"
+    },
+    "android": {
+      "package": "com.spidernest.app"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "部屋の角を撮影するためカメラを使用します。",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "部屋の写真を選択します。",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "完成画像を写真に保存します。"
+        }
+      ]
+    ],
+    "experiments": {
+      "baseUrl": "/SpiderNest"
+    },
+    "web": {
+      "name": "SpiderNest",
+      "bundler": "metro"
+    }
+  }
+}

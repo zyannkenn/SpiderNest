@@ -4,6 +4,10 @@
 
 部屋の角の写真に平面フレームと蜘蛛の巣を重ね、設置イメージを確認できる日本語のスマートフォンアプリです。React Native、Expo SDK 54、TypeScriptで実装しています。
 
+[ブラウザでSpiderNestを開く](https://zyannkenn.github.io/SpiderNest/)
+
+Web版はスマートフォンのブラウザで操作できます。写真とデザインはそのブラウザ内に保存され、完成画像はPNGでダウンロードできます。
+
 ## 起動
 
 Node.js 20.19.4以上と npm を用意し、このフォルダで実行します。

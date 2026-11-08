@@ -1,8 +1,9 @@
 import React, {useMemo,useRef,useState} from 'react';
-import {Image, PanResponder, StyleSheet, View} from 'react-native';
+import {Image, PanResponder, Platform, StyleSheet, View} from 'react-native';
 import Svg,{Circle,Defs,LinearGradient,Stop,Polygon,Polyline,Path,Rect} from 'react-native-svg';
 import {clamp,Design,project,Quad,validQuad,webLines} from './model';
 
+const webDragStyle = {...StyleSheet.absoluteFillObject, touchAction: "none"};
 type Props={design:Design; frame?:boolean; web?:boolean; edit?:(q:Quad)=>void; capture?:React.Ref<View>; robot?:boolean; onImageReady?:(ready:boolean)=>void};
 export function Scene({design,frame=true,web=true,edit,capture,robot,onImageReady}:Props){
   const [width,setWidth]=useState(0);
@@ -63,7 +64,7 @@ export function Scene({design,frame=true,web=true,edit,capture,robot,onImageRead
         {web&&webLines(design).map((line,i)=><Polyline key={i} points={points(line.map(p=>project(design.quad,p)))} stroke={design.color} strokeWidth={i<design.spokes?1.25:.85} opacity={.88} fill="none"/>)}
         {edit&&design.quad.map((p,i)=><Circle key={i} cx={p.x*imageWidth} cy={p.y*imageHeight} r={8} fill="#6842D8" stroke="white" strokeWidth={2}/>)}
       </Svg>
-      {!!edit&&<View style={StyleSheet.absoluteFill} {...pan.panHandlers}/>}
+      {!!edit&&<View style={[StyleSheet.absoluteFill,Platform.OS==='web'&&webDragStyle]} {...pan.panHandlers}/>}
     </View>}
   </View>;
 }
