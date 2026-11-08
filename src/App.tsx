@@ -9,6 +9,7 @@ import {File,Paths} from 'expo-file-system';
 import * as Media from 'expo-media-library';
 import {captureRef,releaseCapture} from 'react-native-view-shot';
 import {Scene} from './Scene';
+import {downloadPreview} from './webImage';
 import {clamp,Design,initialQuad,newDesign,Pattern,patterns,Photo,Quad,validQuad,webDefaults} from './model';
 
 const isWeb=Platform.OS==='web';
@@ -123,14 +124,7 @@ function Studio(){
   };
   const exportImage=()=>run(async()=>{
     if(isWeb){
-      if(!photoView.current)throw Error('プレビューを表示してください。');
-      const uri=await captureRef(photoView,{format:'png',result:'data-uri'});
-      const link=document.createElement('a');
-      link.href=uri;
-      link.download='SpiderNest.png';
-      document.body.append(link);
-      link.click();
-      link.remove();
+      await downloadPreview(photoView.current);
       return;
     }
     const access=await Media.requestPermissionsAsync(true);
